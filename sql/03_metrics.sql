@@ -237,3 +237,27 @@ GROUP BY first_delivery;
 -- ИТОГ 3.4: опоздание — рычаг для обеих главных проблем: оценка (2,27 против 4,29, доза → эффект)
 -- и повторные покупки (−23%). Ограничение: связь, а не доказанная причинность (возможны общие причины —
 -- продавец, категория, регион); для причинного вывода — A/B-тест обещанной даты доставки.
+
+-- 3.5 Категории: выручка, доля, «вес» доставки
+SELECT COALESCE(t.product_category_name_english, p.product_category_name, 'unknown')  AS category,
+       COUNT(*)                                                                       AS items,
+       ROUND(SUM(i.price), 0)                                           	      AS revenue,
+       ROUND(100.0 * SUM(i.price) / SUM(SUM(i.price)) OVER (), 1)       	      AS revenue_pct,
+       ROUND(100.0 * SUM(i.freight_value) / SUM(i.price), 1)            	      AS freight_to_price_pct,
+       ROUND(100.0 * COUNT(*) FILTER (WHERE i.freight_value > i.price) / COUNT(*), 1) AS freight_gt_price_pct
+FROM order_items i
+JOIN orders   o ON o.order_id   = i.order_id
+JOIN products p ON p.product_id = i.product_id
+LEFT JOIN product_category_name_translation t
+       ON t.product_category_name = p.product_category_name
+WHERE o.order_status = 'delivered'
+  AND o.order_purchase_timestamp >= '2017-01-01'
+  AND o.order_purchase_timestamp <  '2018-09-01'
+GROUP BY category
+ORDER BY revenue DESC
+LIMIT 15;
+
+-- Вывод 3.5: явного лидера нет — топ-1 = 9,3% выручки, топ-5 ≈ 40%, топ-15 ≈ 76% (широкий маркетплейс).
+-- Доставка тяжелее всего для мебели (office_furniture 25%, furniture_decor 23,7%) и дешёвой мелочи
+-- (telephony 22,4%, у 9,5% позиций доставка дороже товара); легче всего — watches_gifts (8,4%).
+-- Идея: порог бесплатной доставки / бандлы в этих категориях.
