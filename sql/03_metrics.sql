@@ -18,7 +18,7 @@ GROUP BY month
 ORDER BY month;
 
 -- Вывод 3.1: рост выручки — за счёт числа заказов; AOV стабилен (146–170 BRL).
--- Пик — ноябрь 2017 (Black Friday): 7 289 заказов, 1 078 607 BRL выручки (AOV ≈ 148).
+-- Пик — ноябрь 2017 (Black Friday): 7 289 заказов, 1 153 528 BRL выручки (AOV 158,26).
 
 -- 3.2 Распределение покупателей по числу заказов
 WITH cust_orders AS (
@@ -80,7 +80,6 @@ cohorts AS (
            MIN(order_month) OVER (PARTITION BY customer_unique_id) AS cohort_month
     FROM orders_c
 ),
-
 cm AS (
     SELECT customer_unique_id,
            cohort_month,
