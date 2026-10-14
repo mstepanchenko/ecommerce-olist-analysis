@@ -120,3 +120,37 @@ SELECT check_no, area, check_name, unit, checked, issues,
             THEN 1 ELSE 0 END                                                AS within_threshold,
        decision
 FROM checks;
+
+-- Классификация расхождений сверки 2.5.1 (по способу оплаты и направлению)
+CREATE OR REPLACE VIEW v_recon_diff AS
+WITH items AS (
+    SELECT order_id, SUM(price + freight_value) AS items_total
+    FROM order_items
+    GROUP BY order_id
+),
+pay AS (
+    SELECT order_id,
+           SUM(payment_value)                     AS paid,
+           MAX(payment_installments)              AS installments,
+           STRING_AGG(DISTINCT payment_type, '+') AS pay_types
+    FROM order_payments
+    GROUP BY order_id
+),
+diff AS (
+    SELECT pay.paid - items.items_total AS diff,
+           pay.installments,
+           pay.pay_types
+    FROM orders o
+    JOIN items ON items.order_id = o.order_id
+    JOIN pay   ON pay.order_id   = o.order_id
+    WHERE o.order_status = 'delivered'
+      AND ABS(pay.paid - items.items_total) > 0.01
+)
+SELECT CASE WHEN diff > 0 THEN 'Переплата' ELSE 'Недоплата' END AS direction,
+       pay_types,
+       COUNT(*)                    AS orders,
+       ROUND(SUM(diff), 2)         AS total_diff,
+       ROUND(AVG(diff), 2)         AS avg_diff,
+       ROUND(AVG(installments), 1) AS avg_installments
+FROM diff
+GROUP BY direction, pay_types;
